@@ -13,4 +13,5 @@ dependencies = [
     "ai-definitions",
     "pydantic-ai",
     "openai",
+    "python-dotenv",
 ]

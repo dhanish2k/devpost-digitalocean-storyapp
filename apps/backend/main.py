@@ -1,3 +1,7 @@
+from dotenv import load_dotenv
+from pathlib import Path
+load_dotenv(Path(__file__).parent / ".env")
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
@@ -10,6 +14,7 @@ from typing import Dict
 
 from ai_definitions import ParentPrompt
 from seed_agent import run_seed_agent
+from story_agent import run_story_agent
 
 app = FastAPI()
 
@@ -24,6 +29,9 @@ app.add_middleware(
 # In-memory storage for active story streams.
 # For production, replace with Redis Pub/Sub.
 STREAM_STATE: Dict[str, asyncio.Queue] = {}
+
+# Per-story context: prompt + parsed seeds (needed at /select time).
+STORY_STATE: Dict[str, dict] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +84,9 @@ async def create_story(prompt: ParentPrompt):
     story_id = str(uuid.uuid4())
     queue = asyncio.Queue()
     STREAM_STATE[story_id] = queue
-    asyncio.create_task(run_seed_agent(story_id, prompt, queue))
+    state: dict = {"prompt": prompt, "seeds": []}
+    STORY_STATE[story_id] = state
+    asyncio.create_task(run_seed_agent(story_id, prompt, queue, state))
     return {"story_id": story_id}
 
 
@@ -86,13 +96,19 @@ class SeedSelection(BaseModel):
 
 @app.post("/story/{story_id}/select")
 async def select_seed(story_id: str, selection: SeedSelection):
-    """Parent selects a seed story. Full story generation will be wired here next."""
-    if story_id in STREAM_STATE:
-        await STREAM_STATE[story_id].put({
-            "event": "story_page",
-            "page_number": 1,
-            "text": f"Your story is being crafted... (seed: {selection.seed_id})",
-        })
+    """Parent selects a seed story. Fires the storyteller agent to generate pages."""
+    state = STORY_STATE.get(story_id)
+    queue = STREAM_STATE.get(story_id)
+    if not state or not queue:
+        return {"status": "error", "message": "Unknown story_id"}
+    seed = next(
+        (s for s in state.get("seeds", []) if s["seed_id"] == selection.seed_id),
+        None,
+    )
+    if not seed:
+        return {"status": "error", "message": f"Seed {selection.seed_id!r} not found"}
+    prompt: ParentPrompt = state["prompt"]
+    asyncio.create_task(run_story_agent(seed, prompt.child_name, prompt.child_age, queue))
     return {"status": "ok", "seed_id": selection.seed_id, "story_id": story_id}
 
 
@@ -110,7 +126,7 @@ async def trigger_event(story_id: str, part: StoryPart):
 
 
 @app.get("/stream/{story_id}")
-async def message_stream(request: Request, story_id: str):
+async def message_stream(story_id: str):
     """SSE endpoint. Reads from the story's queue and streams typed events to the client."""
     if story_id not in STREAM_STATE:
         # Demo path: no queue was pre-created, start simulation
@@ -121,24 +137,21 @@ async def message_stream(request: Request, story_id: str):
         queue = STREAM_STATE[story_id]
 
     async def event_generator():
-        try:
-            yield {
-                "event": "stream_open",
-                "data": json.dumps({"message": f"Streaming ready for story {story_id}"}),
-            }
-            while True:
-                if await request.is_disconnected():
-                    print(f"Client for story {story_id} disconnected.")
-                    break
-                data = await queue.get()
-                # Use the event field from the payload to drive the SSE event name.
-                # Falls back to "story_update" for demo simulation payloads.
-                event_type = data.get("event", "story_update")
-                yield {"event": event_type, "data": json.dumps(data)}
-        except asyncio.CancelledError:
-            print(f"Connection cancelled for story {story_id}.")
-        finally:
-            STREAM_STATE.pop(story_id, None)
-            print(f"Stream for {story_id} closed and cleaned up.")
+        yield {
+            "event": "stream_open",
+            "data": json.dumps({"message": f"Streaming ready for story {story_id}"}),
+        }
+        while True:
+            try:
+                # Wait up to 25s for next event; yield a keepalive comment so the
+                # browser doesn't time out on long LLM calls.
+                data = await asyncio.wait_for(queue.get(), timeout=25.0)
+            except asyncio.TimeoutError:
+                yield {"comment": "keepalive"}
+                continue
+            event_type = data.get("event", "story_update")
+            yield {"event": event_type, "data": json.dumps(data)}
+            if event_type in ("story_complete", "error"):
+                break
 
     return EventSourceResponse(event_generator())

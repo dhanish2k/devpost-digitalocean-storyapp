@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { use } from 'react';
+import { use, useEffect, useRef, useState } from 'react';
 
 interface StoryPage {
   page_number: number;
@@ -21,22 +20,20 @@ export default function StoryReaderPage({
   const { id: storyId } = use(params);
   const [pages, setPages] = useState<StoryPage[]>([]);
   const [assets, setAssets] = useState<Record<number, PageAssets>>({});
-  const [currentPage, setCurrentPage] = useState(0);
+  const [current, setCurrent] = useState(0);
   const [complete, setComplete] = useState(false);
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    const eventSource = new EventSource(
-      `${process.env.NEXT_PUBLIC_API_URL}/stream/${storyId}`
-    );
-    eventSourceRef.current = eventSource;
+    const es = new EventSource(`${process.env.NEXT_PUBLIC_API_URL}/stream/${storyId}`);
+    esRef.current = es;
 
-    eventSource.addEventListener('story_page', (e) => {
+    es.addEventListener('story_page', (e) => {
       const data = JSON.parse(e.data);
       setPages((prev) => [...prev, { page_number: data.page_number, text: data.text }]);
     });
 
-    eventSource.addEventListener('image_ready', (e) => {
+    es.addEventListener('image_ready', (e) => {
       const data = JSON.parse(e.data);
       setAssets((prev) => ({
         ...prev,
@@ -44,7 +41,7 @@ export default function StoryReaderPage({
       }));
     });
 
-    eventSource.addEventListener('narration_ready', (e) => {
+    es.addEventListener('narration_ready', (e) => {
       const data = JSON.parse(e.data);
       setAssets((prev) => ({
         ...prev,
@@ -52,55 +49,80 @@ export default function StoryReaderPage({
       }));
     });
 
-    eventSource.addEventListener('story_complete', () => {
+    es.addEventListener('story_complete', () => {
       setComplete(true);
-      eventSource.close();
+      es.close();
     });
 
-    eventSource.onerror = () => eventSource.close();
+    es.onerror = () => es.close();
 
-    return () => eventSource.close();
+    return () => es.close();
   }, [storyId]);
 
-  const page = pages[currentPage];
+  const page = pages[current];
   const pageAssets = page ? assets[page.page_number] : undefined;
+  const isFirst = current === 0;
+  const isLast = current === pages.length - 1;
+
+  if (pages.length === 0) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
+        <div className="w-10 h-10 rounded-full border-2 border-[--color-accent] border-t-transparent animate-spin" />
+        <p className="text-[--color-muted]">Your story is being written...</p>
+      </main>
+    );
+  }
 
   return (
-    <main>
-      {pages.length === 0 ? (
-        <p>Your story is being created...</p>
-      ) : (
-        <>
-          {pageAssets?.image_url && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={pageAssets.image_url} alt={`Page ${page.page_number}`} />
-          )}
-          <p>{page?.text}</p>
-          {pageAssets?.audio_url && (
-            <audio
-              src={pageAssets.audio_url}
-              autoPlay
-              onEnded={() => setCurrentPage((p) => Math.min(p + 1, pages.length - 1))}
-            />
-          )}
-          <div>
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(p - 1, 0))}
-              disabled={currentPage === 0}
-            >
-              Previous
-            </button>
-            <span>Page {currentPage + 1} of {pages.length}</span>
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(p + 1, pages.length - 1))}
-              disabled={currentPage === pages.length - 1}
-            >
-              Next
-            </button>
-          </div>
-          {complete && currentPage === pages.length - 1 && <p>The End</p>}
-        </>
-      )}
+    <main className="min-h-screen flex flex-col items-center justify-center p-6 md:p-16">
+      <div className="w-full max-w-2xl flex flex-col items-center gap-8">
+
+        <span className="text-sm text-[--color-muted] tracking-widest uppercase">
+          Page {current + 1} of {pages.length}{complete ? '' : '...'}
+        </span>
+
+        {pageAssets?.image_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={pageAssets.image_url}
+            alt={`Page ${page.page_number}`}
+            className="w-full rounded-2xl object-cover max-h-72"
+          />
+        )}
+
+        <p className="text-2xl md:text-3xl leading-relaxed text-center text-[--color-foreground] font-light min-h-40">
+          {page?.text}
+        </p>
+
+        {pageAssets?.audio_url && (
+          <audio
+            src={pageAssets.audio_url}
+            autoPlay
+            onEnded={() => setCurrent((p) => Math.min(p + 1, pages.length - 1))}
+          />
+        )}
+
+        {complete && isLast && (
+          <p className="text-[--color-accent] text-2xl font-bold italic">The End</p>
+        )}
+
+        <div className="flex items-center gap-6 mt-4">
+          <button
+            onClick={() => setCurrent((p) => Math.max(p - 1, 0))}
+            disabled={isFirst}
+            className="px-6 py-2 rounded-full border border-[--color-border] text-[--color-muted] hover:border-[--color-accent] hover:text-[--color-accent] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            Prev
+          </button>
+          <button
+            onClick={() => setCurrent((p) => Math.min(p + 1, pages.length - 1))}
+            disabled={isLast}
+            className="px-6 py-2 rounded-full border border-[--color-border] text-[--color-muted] hover:border-[--color-accent] hover:text-[--color-accent] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
+      </div>
     </main>
   );
 }
