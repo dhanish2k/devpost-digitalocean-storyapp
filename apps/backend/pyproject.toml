@@ -11,4 +11,6 @@ dependencies = [
     "uvicorn[standard]",
     "sse-starlette",
     "ai-definitions",
+    "pydantic-ai",
+    "openai",
 ]

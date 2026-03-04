@@ -27,7 +27,7 @@ export default function StoryDemoPage() {
     }
 
     // Create a new EventSource connection to our backend stream
-    const eventSource = new EventSource(`http://localhost:8000/stream/${storyId}`);
+    const eventSource = new EventSource(`${process.env.NEXT_PUBLIC_API_URL}/stream/${storyId}`);
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
@@ -61,7 +61,7 @@ export default function StoryDemoPage() {
   // Function to create a new story
   const handleCreateStory = async () => {
     try {
-      const response = await fetch('http://localhost:8000/story', { method: 'POST' });
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/story/demo`, { method: 'POST' });
       const data = await response.json();
       setStoryParts([]); // Clear old story parts
       setStoryId(data.story_id); // This will trigger the useEffect to connect
@@ -78,7 +78,7 @@ export default function StoryDemoPage() {
     }
     try {
       const content = `This is a new exciting part of story ${storyId.substring(0, 4)}...`;
-      await fetch(`http://localhost:8000/story/${storyId}/trigger`, {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/story/${storyId}/trigger`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content }),
