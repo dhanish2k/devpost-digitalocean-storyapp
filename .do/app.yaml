@@ -1,19 +1,5 @@
 name: storytime
 
-ingress:
-  rules:
-    - component:
-        name: frontend
-      match:
-        path:
-          prefix: /
-    - component:
-        name: backend
-        preserve_path_prefix: false
-      match:
-        path:
-          prefix: /api
-
 services:
   - name: backend
     dockerfile_path: Dockerfile
@@ -25,6 +11,9 @@ services:
     http_port: 8080
     instance_size_slug: basic-xxs
     instance_count: 1
+    routes:
+      - path: /api
+        preserve_path_prefix: false
     envs:
       - key: MODEL_ACCESS_KEY
         scope: RUN_TIME
@@ -44,6 +33,8 @@ services:
     http_port: 3000
     instance_size_slug: basic-xxs
     instance_count: 1
+    routes:
+      - path: /
     envs:
       - key: NEXT_PUBLIC_API_URL
         value: /api
