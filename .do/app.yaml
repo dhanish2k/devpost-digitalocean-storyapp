@@ -11,15 +11,15 @@ services:
     http_port: 8080
     instance_size_slug: basic-xxs
     instance_count: 1
-    routes:
-      - path: /api
-        preserve_path_prefix: false
     envs:
       - key: MODEL_ACCESS_KEY
         scope: RUN_TIME
         type: SECRET
       - key: MODEL_NAME
         value: llama3.3-70b-instruct
+        scope: RUN_TIME
+      - key: ALLOWED_ORIGIN
+        value: ${frontend.PUBLIC_URL}
         scope: RUN_TIME
 
   - name: frontend
@@ -37,5 +37,5 @@ services:
       - path: /
     envs:
       - key: NEXT_PUBLIC_API_URL
-        value: /api
+        value: ${backend.PUBLIC_URL}
         scope: BUILD_TIME
