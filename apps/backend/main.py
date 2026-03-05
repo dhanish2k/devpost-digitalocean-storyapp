@@ -3,7 +3,7 @@ from pathlib import Path
 load_dotenv(Path(__file__).parent / ".env")
 
 import os
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, APIRouter, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 import asyncio
@@ -18,6 +18,7 @@ from seed_agent import run_seed_agent
 from story_agent import run_story_agent
 
 app = FastAPI()
+router = APIRouter(prefix="/api")
 
 # ALLOWED_ORIGIN can be a comma-separated list for multiple origins.
 # Defaults to localhost for local dev.
@@ -76,7 +77,7 @@ def read_root():
     return {"Hello": "World"}
 
 
-@app.post("/story/demo")
+@router.post("/story/demo")
 async def create_demo_story():
     """Creates a demo story session (no parent prompt required). Used by /story.demo."""
     story_id = str(uuid.uuid4())
@@ -84,7 +85,7 @@ async def create_demo_story():
     return {"story_id": story_id}
 
 
-@app.post("/story")
+@router.post("/story")
 async def create_story(prompt: ParentPrompt):
     """Creates a real story session. Kicks off the seed agent in the background."""
     story_id = str(uuid.uuid4())
@@ -100,7 +101,7 @@ class SeedSelection(BaseModel):
     seed_id: str
 
 
-@app.post("/story/{story_id}/select")
+@router.post("/story/{story_id}/select")
 async def select_seed(story_id: str, selection: SeedSelection):
     """Parent selects a seed story. Fires the storyteller agent to generate pages."""
     state = STORY_STATE.get(story_id)
@@ -122,7 +123,7 @@ class StoryPart(BaseModel):
     content: str
 
 
-@app.post("/story/{story_id}/trigger")
+@router.post("/story/{story_id}/trigger")
 async def trigger_event(story_id: str, part: StoryPart):
     """Demo-only: manually push a story part onto the queue."""
     if story_id in STREAM_STATE:
@@ -131,7 +132,7 @@ async def trigger_event(story_id: str, part: StoryPart):
     return {"status": "error", "message": f"No active stream for story {story_id}"}
 
 
-@app.get("/stream/{story_id}")
+@router.get("/stream/{story_id}")
 async def message_stream(story_id: str):
     """SSE endpoint. Reads from the story's queue and streams typed events to the client."""
     if story_id not in STREAM_STATE:
@@ -161,3 +162,5 @@ async def message_stream(story_id: str):
                 break
 
     return EventSourceResponse(event_generator())
+
+app.include_router(router)
