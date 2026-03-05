@@ -1,5 +1,19 @@
 name: storytime
 
+ingress:
+  rules:
+    - component:
+        name: frontend
+      match:
+        path:
+          prefix: /
+    - component:
+        name: backend
+        preserve_path_prefix: false
+      match:
+        path:
+          prefix: /api
+
 services:
   - name: backend
     dockerfile_path: Dockerfile
@@ -18,9 +32,6 @@ services:
       - key: MODEL_NAME
         value: llama3.3-70b-instruct
         scope: RUN_TIME
-      - key: ALLOWED_ORIGIN
-        value: ${frontend.PUBLIC_URL}
-        scope: RUN_TIME
 
   - name: frontend
     source_dir: apps/frontend
@@ -35,5 +46,5 @@ services:
     instance_count: 1
     envs:
       - key: NEXT_PUBLIC_API_URL
-        value: ${backend.PUBLIC_URL}
+        value: /api
         scope: BUILD_TIME
