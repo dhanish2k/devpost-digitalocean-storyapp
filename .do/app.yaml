@@ -1,0 +1,39 @@
+name: storytime
+
+services:
+  - name: backend
+    dockerfile_path: Dockerfile
+    source_dir: /
+    github:
+      repo: dhanish2k/devpost-digitalocean-storyapp
+      branch: main
+      deploy_on_push: true
+    http_port: 8080
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    envs:
+      - key: MODEL_ACCESS_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: MODEL_NAME
+        value: llama3.3-70b-instruct
+        scope: RUN_TIME
+      - key: ALLOWED_ORIGIN
+        value: ${frontend.PUBLIC_URL}
+        scope: RUN_TIME
+
+  - name: frontend
+    source_dir: apps/frontend
+    github:
+      repo: dhanish2k/devpost-digitalocean-storyapp
+      branch: main
+      deploy_on_push: true
+    build_command: npm install && npm run build
+    run_command: npm start
+    http_port: 3000
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    envs:
+      - key: NEXT_PUBLIC_API_URL
+        value: ${backend.PUBLIC_URL}
+        scope: BUILD_TIME

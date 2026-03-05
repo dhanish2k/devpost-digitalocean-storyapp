@@ -2,6 +2,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(Path(__file__).parent / ".env")
 
+import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
@@ -18,9 +19,14 @@ from story_agent import run_story_agent
 
 app = FastAPI()
 
+# ALLOWED_ORIGIN can be a comma-separated list for multiple origins.
+# Defaults to localhost for local dev.
+_raw = os.getenv("ALLOWED_ORIGIN", "http://localhost:3000")
+allowed_origins = [o.strip() for o in _raw.split(",")]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
