@@ -18,7 +18,7 @@ from seed_agent import run_seed_agent
 from story_agent import run_story_agent
 
 app = FastAPI()
-router = APIRouter(prefix="/api")
+router = APIRouter()
 
 # ALLOWED_ORIGIN can be a comma-separated list for multiple origins.
 # Defaults to localhost for local dev.

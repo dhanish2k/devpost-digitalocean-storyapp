@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import API_URL from '@/lib/api';
 
 interface SeedOption {
   seed_id: string;
@@ -24,7 +25,7 @@ function SelectPageInner() {
   useEffect(() => {
     if (!storyId) return;
 
-    const es = new EventSource(`${process.env.NEXT_PUBLIC_API_URL}/stream/${storyId}`);
+    const es = new EventSource(`${API_URL}/stream/${storyId}`);
 
     es.addEventListener('seed_options', (e) => {
       const data = JSON.parse(e.data);
@@ -51,7 +52,7 @@ function SelectPageInner() {
 
   const handleSelect = async (seedId: string) => {
     setSelecting(seedId);
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/story/${storyId}/select`, {
+    await fetch(`${API_URL}/story/${storyId}/select`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ seed_id: seedId }),

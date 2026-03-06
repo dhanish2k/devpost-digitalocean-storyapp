@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useEffect, useRef, useState } from 'react';
+import API_URL from '@/lib/api';
 
 interface StoryPage {
   page_number: number;
@@ -25,7 +26,7 @@ export default function StoryReaderPage({
   const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    const es = new EventSource(`${process.env.NEXT_PUBLIC_API_URL}/stream/${storyId}`);
+    const es = new EventSource(`${API_URL}/stream/${storyId}`);
     esRef.current = es;
 
     es.addEventListener('story_page', (e) => {
