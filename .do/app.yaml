@@ -22,7 +22,7 @@ services:
         scope: RUN_TIME
 
   - name: frontend
-    dockerfile_path: Dockerfile
+    dockerfile_path: apps/frontend/Dockerfile
     source_dir: apps/frontend
     github:
       repo: dhanish2k/devpost-digitalocean-storyapp
