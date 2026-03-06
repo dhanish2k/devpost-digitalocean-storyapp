@@ -28,7 +28,7 @@ services:
       branch: main
       deploy_on_push: true
     build_command: npm install && npm run build
-    run_command: npm start
+    run_command: npx next start
     http_port: 3000
     instance_size_slug: basic-xxs
     instance_count: 1
