@@ -22,13 +22,12 @@ services:
         scope: RUN_TIME
 
   - name: frontend
+    dockerfile_path: Dockerfile
     source_dir: apps/frontend
     github:
       repo: dhanish2k/devpost-digitalocean-storyapp
       branch: main
       deploy_on_push: true
-    build_command: npm install && npm run build
-    run_command: npx next start
     http_port: 3000
     instance_size_slug: basic-xxs
     instance_count: 1
