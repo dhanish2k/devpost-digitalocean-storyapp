@@ -131,16 +131,24 @@ function SelectPageInner() {
 
                   <p className="text-[--color-muted] text-sm leading-relaxed flex-1">{seed.synopsis}</p>
 
-                  <div className="flex flex-wrap gap-1">
-                    {seed.values.map((v) => (
-                      <span
-                        key={v}
-                        className="text-xs px-2 py-0.5 rounded-full bg-[--color-border] text-[--color-muted]"
-                      >
-                        {v}
-                      </span>
-                    ))}
-                  </div>
+                  {seed.values.length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest text-[--color-muted] mb-1.5">
+                        This story explores
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {seed.values.map((v) => (
+                          <span
+                            key={v}
+                            className="text-xs px-2.5 py-1 rounded-full border text-[--color-accent]"
+                            style={{ borderColor: 'rgba(232,168,56,0.35)', backgroundColor: 'rgba(232,168,56,0.08)' }}
+                          >
+                            {v}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <button
                     onClick={() => handleSelect(seed.seed_id)}

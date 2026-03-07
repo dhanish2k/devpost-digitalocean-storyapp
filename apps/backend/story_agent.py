@@ -38,6 +38,12 @@ GOLDEN RULES:
 5. The RESOLUTION comes from a specific, brave, or clever action the protagonist takes. \
    The reader feels the meaning without being told it.
 6. The final page is peaceful and warm. The protagonist is safe, loved, and drifting to sleep.
+7. NEVER skip the climactic moment. The page where the protagonist faces the obstacle MUST show \
+   the exact action they take to overcome it — one concrete, specific thing they do, say, or use. \
+   Never jump from "facing the threat" to "it was resolved". The action must be on the page.
+8. NEVER name what a character feels. No "felt proud", "felt happy", "felt scared", "felt relieved". \
+   Instead write what their body does or what they notice: shoulders drop, breath comes slow, \
+   hands stop shaking, the tight knot in the chest loosens. The reader infers the feeling.
 
 FORMAT:
 Step 1 — Characters: Define ALL named characters with precise visual descriptions for the illustrator. \

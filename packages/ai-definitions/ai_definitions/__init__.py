@@ -12,7 +12,7 @@ class ParentPrompt(BaseModel):
     child_name: str
     child_age: int
     description: str        # e.g. "had a tough day, argued with best friend"
-    values: list[str]       # e.g. ["empathy", "forgiveness", "courage"]
+    values: list[str] = []  # optional parent-supplied themes; agent infers if empty
     child_gender: str | None = None       # "boy", "girl", or "neutral"
     child_archetype: str | None = None    # e.g. "brave knight", "magical fairy"
     story_length: str = "medium"          # "short" (3p), "medium" (5p), "long" (8p)

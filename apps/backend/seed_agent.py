@@ -31,17 +31,21 @@ Each seed must:
 
 
 def _build_prompt(p: ParentPrompt) -> str:
-    values_str = ", ".join(p.values) if p.values else "kindness"
     gender_hint    = f" ({p.child_gender})" if p.child_gender else ""
     archetype_hint = (
         f"\nProtagonist: {p.child_name} is a {p.child_archetype}{gender_hint}"
         if p.child_archetype
         else (f"\nProtagonist gender: {p.child_gender}" if p.child_gender else "")
     )
+    values_line = (
+        f"\nEmotional themes to draw on (let these emerge through the story — do NOT name them): {', '.join(p.values)}"
+        if p.values else
+        "\nInfer the most resonant emotional themes from what happened — do NOT name them in the story."
+    )
     return (
         f"Child: {p.child_name}, age {p.child_age}\n"
-        f"What happened today: {p.description}\n"
-        f"Emotional themes to draw on (let these emerge through the story — do NOT name them): {values_str}"
+        f"What happened today: {p.description}"
+        f"{values_line}"
         f"{archetype_hint}\n\n"
         f"Generate 3 seed story options."
         + ("\n\nIMPORTANT: Write ALL output (titles, settings, synopses) in Spanish." if p.language == "es" else "")

@@ -90,7 +90,6 @@ export default function HomePage() {
   const [narration, setNarration]     = useLsBool  (LS_NARRATION, true);
   const [language,  setLanguage]      = useLsString(LS_LANGUAGE,  'en');
   const [description, setDescription] = useState('');
-  const [values, setValues]           = useState('');
 
   const selectedAvatar = AVATARS.find(a => a.id === avatar);
   const gender    = selectedAvatar?.gender    ?? null;
@@ -108,7 +107,7 @@ export default function HomePage() {
           child_name: name,
           child_age: age,
           description,
-          values: values.split(',').map(v => v.trim()).filter(Boolean),
+          values: [],
           child_gender: gender,
           child_archetype: archetype,
           story_length: storyLength,
@@ -231,19 +230,6 @@ export default function HomePage() {
                 placeholder="She had a tough day at school — felt left out at lunch and nobody sat with her."
                 value={description}
                 onChange={e => setDescription(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className={labelClass}>
-                Values to explore{' '}
-                <span className="font-normal">(comma-separated)</span>
-              </label>
-              <input
-                className={inputClass}
-                placeholder="kindness, courage, friendship"
-                value={values}
-                onChange={e => setValues(e.target.value)}
               />
             </div>
 
