@@ -2840,6 +2840,7 @@ source = { editable = "apps/backend" }
 dependencies = [
     { name = "ai-definitions" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "openai" },
     { name = "pydantic-ai" },
     { name = "python-dotenv" },
@@ -2851,6 +2852,7 @@ dependencies = [
 requires-dist = [
     { name = "ai-definitions", editable = "packages/ai-definitions" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "openai" },
     { name = "pydantic-ai" },
     { name = "python-dotenv" },

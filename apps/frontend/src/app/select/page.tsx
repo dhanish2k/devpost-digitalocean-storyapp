@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import API_URL from '@/lib/api';
+import StoryLoader from '@/components/StoryLoader';
 
 interface SeedOption {
   seed_id: string;
@@ -18,6 +19,7 @@ function SelectPageInner() {
   const storyId = searchParams.get('story_id');
 
   const [seeds, setSeeds] = useState<SeedOption[]>([]);
+  const [seedImages, setSeedImages] = useState<Record<string, string>>({});
   const [selecting, setSelecting] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -30,8 +32,19 @@ function SelectPageInner() {
     es.addEventListener('seed_options', (e) => {
       const data = JSON.parse(e.data);
       setSeeds(data.seeds);
-      setLoading(false);
-      es.close();
+      // Stay on loader — wait for images before revealing tiles
+    });
+
+    es.addEventListener('seed_image_ready', (e) => {
+      const data = JSON.parse(e.data);
+      setSeedImages((prev) => {
+        const next = { ...prev, [data.seed_id]: data.image_url };
+        if (Object.keys(next).length >= 3) {
+          setLoading(false);
+          es.close();
+        }
+        return next;
+      });
     });
 
     es.addEventListener('error', (e) => {
@@ -47,7 +60,12 @@ function SelectPageInner() {
       es.close();
     };
 
-    return () => es.close();
+    // Safety: if seeds arrived but some images failed, show after 30s anyway
+    const fallback = setTimeout(() => {
+      setSeeds((s) => { if (s.length > 0) setLoading(false); return s; });
+    }, 30_000);
+
+    return () => { es.close(); clearTimeout(fallback); };
   }, [storyId]);
 
   const handleSelect = async (seedId: string) => {
@@ -69,12 +87,7 @@ function SelectPageInner() {
   }
 
   if (loading) {
-    return (
-      <main className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
-        <div className="w-10 h-10 rounded-full border-2 border-[--color-accent] border-t-transparent animate-spin" />
-        <p className="text-[--color-muted]">Dreaming up your story seeds...</p>
-      </main>
-    );
+    return <StoryLoader />;
   }
 
   return (
@@ -86,40 +99,60 @@ function SelectPageInner() {
         </p>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {seeds.map((seed) => (
-            <div
-              key={seed.seed_id}
-              className="rounded-2xl bg-[--color-card] border border-[--color-border] p-6 flex flex-col gap-4 hover:border-[--color-accent] transition-colors"
-            >
-              <div>
-                <span className="text-xs font-medium text-[--color-accent] uppercase tracking-wider">
-                  {seed.setting}
-                </span>
-                <h2 className="text-xl font-bold text-[--color-foreground] mt-1">{seed.title}</h2>
-              </div>
-
-              <p className="text-[--color-muted] text-sm leading-relaxed flex-1">{seed.synopsis}</p>
-
-              <div className="flex flex-wrap gap-1">
-                {seed.values.map((v) => (
-                  <span
-                    key={v}
-                    className="text-xs px-2 py-0.5 rounded-full bg-[--color-border] text-[--color-muted]"
-                  >
-                    {v}
-                  </span>
-                ))}
-              </div>
-
-              <button
-                onClick={() => handleSelect(seed.seed_id)}
-                disabled={selecting !== null}
-                className="w-full rounded-lg bg-[--color-accent] text-[--color-background] font-semibold py-2.5 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          {seeds.map((seed) => {
+            const imageUrl = seedImages[seed.seed_id];
+            return (
+              <div
+                key={seed.seed_id}
+                className="rounded-2xl bg-[--color-card] border border-[--color-border] flex flex-col hover:border-[--color-accent] transition-colors overflow-hidden"
               >
-                {selecting === seed.seed_id ? 'Starting...' : 'Choose this story'}
-              </button>
-            </div>
-          ))}
+                {/* Image area */}
+                <div className="w-full aspect-video bg-[--color-border] relative overflow-hidden">
+                  {imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={imageUrl}
+                      alt={seed.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full animate-pulse bg-gradient-to-br from-[--color-border] to-[--color-card]" />
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className="p-6 flex flex-col gap-4 flex-1">
+                  <div>
+                    <span className="text-xs font-medium text-[--color-accent] uppercase tracking-wider">
+                      {seed.setting}
+                    </span>
+                    <h2 className="text-xl font-bold text-[--color-foreground] mt-1">{seed.title}</h2>
+                  </div>
+
+                  <p className="text-[--color-muted] text-sm leading-relaxed flex-1">{seed.synopsis}</p>
+
+                  <div className="flex flex-wrap gap-1">
+                    {seed.values.map((v) => (
+                      <span
+                        key={v}
+                        className="text-xs px-2 py-0.5 rounded-full bg-[--color-border] text-[--color-muted]"
+                      >
+                        {v}
+                      </span>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => handleSelect(seed.seed_id)}
+                    disabled={selecting !== null}
+                    className="w-full rounded-lg bg-[--color-accent] text-[--color-background] font-semibold py-2.5 hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {selecting === seed.seed_id ? 'Starting...' : 'Choose this story'}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </main>

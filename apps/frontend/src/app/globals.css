@@ -25,3 +25,41 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, sans-serif;
 }
+
+/* Age range slider */
+.storytime-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+}
+
+.storytime-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(232, 168, 56, 0.2);
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.storytime-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(232, 168, 56, 0.2);
+}
+
+.storytime-slider:hover::-webkit-slider-thumb,
+.storytime-slider:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 5px rgba(232, 168, 56, 0.3);
+  transform: scale(1.1);
+}

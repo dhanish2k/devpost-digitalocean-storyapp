@@ -13,6 +13,11 @@ class ParentPrompt(BaseModel):
     child_age: int
     description: str        # e.g. "had a tough day, argued with best friend"
     values: list[str]       # e.g. ["empathy", "forgiveness", "courage"]
+    child_gender: str | None = None       # "boy", "girl", or "neutral"
+    child_archetype: str | None = None    # e.g. "brave knight", "magical fairy"
+    story_length: str = "medium"          # "short" (3p), "medium" (5p), "long" (8p)
+    narration_enabled: bool = True
+    language: str = "en"                  # "en" or "es"
 
 
 class SeedOption(BaseModel):
@@ -50,6 +55,12 @@ class StoryPageEvent(BaseModel):
     text: str
 
 
+class SeedImageReadyEvent(BaseModel):
+    event: Literal["seed_image_ready"] = "seed_image_ready"
+    seed_id: str
+    image_url: str
+
+
 class ImageReadyEvent(BaseModel):
     event: Literal["image_ready"] = "image_ready"
     page_number: int
@@ -77,6 +88,7 @@ class StoryCompleteEvent(BaseModel):
 # Union type for discriminated parsing
 StoryEvent = (
     SeedOptionsEvent
+    | SeedImageReadyEvent
     | StoryPageEvent
     | ImageReadyEvent
     | NarrationReadyEvent

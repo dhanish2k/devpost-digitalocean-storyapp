@@ -8,7 +8,8 @@ from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-from ai_definitions import ParentPrompt, SeedOption, SeedOptionsEvent
+from ai_definitions import ParentPrompt, SeedOption, SeedOptionsEvent, SeedImageReadyEvent
+from fal_client import generate_image
 
 
 class SeedGenerationResult(BaseModel):
@@ -16,25 +17,34 @@ class SeedGenerationResult(BaseModel):
 
 
 _SYSTEM_PROMPT = """\
-You are a creative children's story architect. Generate exactly 3 distinct seed story \
-options for a personalised bedtime story tailored to a specific child.
+You are a creative children's story architect. Generate exactly 3 distinct seed story options \
+for a personalised bedtime story tailored to a specific child.
 
 Each seed must:
-- Be age-appropriate for the child's age
-- Directly address the emotional situation described by the parent
-- Weave in at least one of the requested values organically
-- Have a unique, imaginative setting (no two seeds may share a setting)
-- Have a warm, hopeful 2-3 sentence synopsis written to excite the parent\
+- Match the child's age precisely — the stakes, language, and sense of wonder must feel right for that age
+- Address the emotional situation the parent described through the STORY SITUATION, not by naming feelings or lessons
+- Propose a concrete, active conflict: a lost creature, a task that seems impossible, a mystery to solve, \
+  a friend in trouble — NOT merely "someone was unkind" or "they had a hard day"
+- Have a wholly unique setting (no two seeds may share a world, genre, or tone)
+- Write a warm, imaginative 2-3 sentence synopsis that excites the parent without naming the moral\
 """
 
 
 def _build_prompt(p: ParentPrompt) -> str:
     values_str = ", ".join(p.values) if p.values else "kindness"
+    gender_hint    = f" ({p.child_gender})" if p.child_gender else ""
+    archetype_hint = (
+        f"\nProtagonist: {p.child_name} is a {p.child_archetype}{gender_hint}"
+        if p.child_archetype
+        else (f"\nProtagonist gender: {p.child_gender}" if p.child_gender else "")
+    )
     return (
         f"Child: {p.child_name}, age {p.child_age}\n"
         f"What happened today: {p.description}\n"
-        f"Values to explore: {values_str}\n\n"
-        "Generate 3 seed story options."
+        f"Emotional themes to draw on (let these emerge through the story — do NOT name them): {values_str}"
+        f"{archetype_hint}\n\n"
+        f"Generate 3 seed story options."
+        + ("\n\nIMPORTANT: Write ALL output (titles, settings, synopses) in Spanish." if p.language == "es" else "")
     )
 
 
@@ -73,6 +83,8 @@ async def run_seed_agent(
         state_store["seeds"] = [s.model_dump() for s in seeds]
         event = SeedOptionsEvent(seeds=seeds)
         await queue.put(event.model_dump())
+        for seed in seeds:
+            asyncio.create_task(_generate_seed_image(seed, queue))
     except Exception as exc:
         print(f"[seed_agent] ERROR for story {story_id}: {exc}")
         await queue.put({
@@ -80,3 +92,16 @@ async def run_seed_agent(
             "stage": "seed_generation",
             "message": str(exc),
         })
+
+
+async def _generate_seed_image(seed: SeedOption, queue: asyncio.Queue) -> None:
+    try:
+        prompt = (
+            f"Children's book illustration, soft watercolor style, warm colors. "
+            f"An atmospheric establishing scene of {seed.setting}. "
+            f"No characters, no people, no text. Cozy bedtime story art."
+        )
+        url = await generate_image(prompt)
+        await queue.put(SeedImageReadyEvent(seed_id=seed.seed_id, image_url=url).model_dump())
+    except Exception as exc:
+        print(f"[seed_agent] Image gen failed for seed {seed.seed_id}: {exc}")

@@ -115,7 +115,11 @@ async def select_seed(story_id: str, selection: SeedSelection):
     if not seed:
         return {"status": "error", "message": f"Seed {selection.seed_id!r} not found"}
     prompt: ParentPrompt = state["prompt"]
-    asyncio.create_task(run_story_agent(seed, prompt.child_name, prompt.child_age, queue))
+    asyncio.create_task(run_story_agent(
+        seed, prompt.child_name, prompt.child_age, queue,
+        prompt.child_gender, prompt.narration_enabled, prompt.story_length, prompt.child_archetype,
+        prompt.language,
+    ))
     return {"status": "ok", "seed_id": selection.seed_id, "story_id": story_id}
 
 
@@ -158,7 +162,7 @@ async def message_stream(story_id: str):
                 continue
             event_type = data.get("event", "story_update")
             yield {"event": event_type, "data": json.dumps(data)}
-            if event_type in ("story_complete", "error"):
+            if event_type in ("stream_done", "error"):
                 break
 
     return EventSourceResponse(event_generator())
