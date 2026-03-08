@@ -23,6 +23,9 @@ services:
       - key: LOGFIRE_TOKEN
         scope: RUN_TIME
         type: SECRET
+      - key: ENVIRONMENT
+        value: production
+        scope: RUN_TIME
 
   - name: frontend
     dockerfile_path: apps/frontend/Dockerfile

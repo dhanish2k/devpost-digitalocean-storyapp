@@ -2,12 +2,16 @@ from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(Path(__file__).parent / ".env")
 
+import os
 import logfire
-logfire.configure()
+
+logfire.configure(
+    send_to_logfire="if-token-present",
+    service_name="storytime-backend",
+    environment=os.getenv("ENVIRONMENT", "development"),
+)
 logfire.instrument_pydantic_ai()
 logfire.instrument_httpx()
-
-import os
 from fastapi import FastAPI, APIRouter, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse

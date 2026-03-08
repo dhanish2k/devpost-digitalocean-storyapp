@@ -14,9 +14,9 @@ dependencies = [
     "uvicorn[standard]",
     "sse-starlette",
     "ai-definitions",
-    "pydantic-ai",
+    "pydantic-ai-slim[openai]",
     "openai",
     "python-dotenv",
     "httpx",
-    "logfire[fastapi,httpx,pydantic-ai]",
+    "logfire[fastapi,httpx]",
 ]
