@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.settings import ModelSettings
 
 from ai_definitions import ParentPrompt, SeedOption, SeedOptionsEvent, SeedImageReadyEvent
 from fal_client import generate_image
@@ -78,7 +79,8 @@ def get_seed_agent() -> Agent[None, SeedGenerationResult]:
                 api_key=key,
             ),
         )
-        _agent = Agent(model, name="seed-agent", output_type=SeedGenerationResult, system_prompt=_SYSTEM_PROMPT)
+        _agent = Agent(model, name="seed-agent", output_type=SeedGenerationResult, system_prompt=_SYSTEM_PROMPT,
+                       model_settings=ModelSettings(timeout=60.0))
     return _agent
 
 

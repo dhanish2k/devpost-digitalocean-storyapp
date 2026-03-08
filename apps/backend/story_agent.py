@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.settings import ModelSettings
 
 from ai_definitions import StoryPage, StoryPageEvent, StoryCompleteEvent, ImageReadyEvent, NarrationReadyEvent
 from fal_client import generate_image, generate_tts
@@ -106,7 +107,8 @@ def get_story_agent() -> Agent[None, StoryGenerationResult]:
                 api_key=key,
             ),
         )
-        _agent = Agent(model, name="story-agent", output_type=StoryGenerationResult, system_prompt=_SYSTEM_PROMPT)
+        _agent = Agent(model, name="story-agent", output_type=StoryGenerationResult, system_prompt=_SYSTEM_PROMPT,
+                       model_settings=ModelSettings(timeout=120.0))
     return _agent
 
 

@@ -32,6 +32,9 @@ services:
       - key: ENVIRONMENT
         value: production
         scope: RUN_TIME
+      - key: ALLOWED_ORIGIN
+        value: ${APP_URL}
+        scope: RUN_TIME
 
   - name: frontend
     dockerfile_path: apps/frontend/Dockerfile

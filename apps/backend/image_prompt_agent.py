@@ -9,6 +9,7 @@ import os
 from pydantic_ai import Agent
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai.settings import ModelSettings
 
 
 _SYSTEM_PROMPT = """\
@@ -45,7 +46,8 @@ def _get_agent() -> Agent[None, str]:
                 api_key=key,
             ),
         )
-        _agent = Agent(model, name="image-prompt-agent", output_type=str, system_prompt=_SYSTEM_PROMPT)
+        _agent = Agent(model, name="image-prompt-agent", output_type=str, system_prompt=_SYSTEM_PROMPT,
+                       model_settings=ModelSettings(timeout=60.0))
     return _agent
 
 
