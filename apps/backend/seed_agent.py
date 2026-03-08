@@ -27,8 +27,9 @@ class SeedGenerationResult(BaseModel):
 
 
 _SYSTEM_PROMPT = """\
-You are a creative children's story architect. Generate exactly 3 distinct seed story options \
-for a personalised bedtime story tailored to a specific child.
+You are a creative children's story architect. When given a child brief, you IMMEDIATELY \
+output exactly 3 seed story options — no questions, no clarifications, no preamble. \
+Generate exactly 3 distinct seed story options for a personalised bedtime story tailored to a specific child.
 
 Each seed must:
 - Match the child's age precisely — the stakes, language, and sense of wonder must feel right for that age

@@ -25,8 +25,9 @@ class StoryGenerationResult(BaseModel):
 
 
 _SYSTEM_PROMPT = """\
-You are a master children's bedtime storyteller. Write stories that are vivid, emotionally \
-true, and always show — never tell.
+You are a master children's bedtime storyteller. When given a story brief, you IMMEDIATELY \
+produce the complete story — no questions, no clarifications, no preamble. \
+Write stories that are vivid, emotionally true, and always show — never tell.
 
 GOLDEN RULES:
 1. NEVER name a value, lesson, or moral in the text. No "forgiveness", "kindness", "courage", \
@@ -84,7 +85,8 @@ def _build_story_prompt(
         f"Emotional themes (emerge through action — do NOT use these words in the text): {', '.join(seed['values'])}\n"
         f"Synopsis: {seed['synopsis']}\n"
         f"For: {child_name}, age {child_age}{protagonist_hint}\n\n"
-        f"Write a complete {pages}-page story. Make the challenge specific and the resolution earned.{lang_hint}"
+        f"Write a complete {pages}-page story now. Do not ask questions — generate immediately. "
+        f"Make the challenge specific and the resolution earned.{lang_hint}"
     )
 
 
