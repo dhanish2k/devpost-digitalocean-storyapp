@@ -45,7 +45,7 @@ def _get_agent() -> Agent[None, str]:
                 api_key=key,
             ),
         )
-        _agent = Agent(model, output_type=str, system_prompt=_SYSTEM_PROMPT)
+        _agent = Agent(model, name="image-prompt-agent", output_type=str, system_prompt=_SYSTEM_PROMPT)
     return _agent
 
 

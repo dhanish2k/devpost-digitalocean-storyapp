@@ -106,7 +106,7 @@ def get_story_agent() -> Agent[None, StoryGenerationResult]:
                 api_key=key,
             ),
         )
-        _agent = Agent(model, output_type=StoryGenerationResult, system_prompt=_SYSTEM_PROMPT)
+        _agent = Agent(model, name="story-agent", output_type=StoryGenerationResult, system_prompt=_SYSTEM_PROMPT)
     return _agent
 
 

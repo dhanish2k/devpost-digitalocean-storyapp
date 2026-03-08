@@ -2,6 +2,11 @@ from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(Path(__file__).parent / ".env")
 
+import logfire
+logfire.configure()
+logfire.instrument_pydantic_ai()
+logfire.instrument_httpx()
+
 import os
 from fastapi import FastAPI, APIRouter, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +23,7 @@ from seed_agent import run_seed_agent
 from story_agent import run_story_agent
 
 app = FastAPI()
+logfire.instrument_fastapi(app)
 router = APIRouter()
 
 # ALLOWED_ORIGIN can be a comma-separated list for multiple origins.

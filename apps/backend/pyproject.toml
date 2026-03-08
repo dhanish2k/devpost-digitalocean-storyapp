@@ -18,4 +18,5 @@ dependencies = [
     "openai",
     "python-dotenv",
     "httpx",
+    "logfire[fastapi,httpx,pydantic-ai]",
 ]

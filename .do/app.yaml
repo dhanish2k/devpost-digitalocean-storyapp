@@ -18,8 +18,11 @@ services:
         scope: RUN_TIME
         type: SECRET
       - key: MODEL_NAME
-        value: llama3.3-70b-instruct
+        value: openai-gpt-oss-120b
         scope: RUN_TIME
+      - key: LOGFIRE_TOKEN
+        scope: RUN_TIME
+        type: SECRET
 
   - name: frontend
     dockerfile_path: apps/frontend/Dockerfile
