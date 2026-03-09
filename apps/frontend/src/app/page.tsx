@@ -207,14 +207,30 @@ export default function HomePage() {
                 value={name}
                 onChange={e => setName(e.target.value)}
               />
-              {/* Hero checkbox */}
+              {/* Hero checkbox — custom styled */}
               <label className="flex items-center gap-2.5 mt-2.5 cursor-pointer select-none w-fit">
                 <input
                   type="checkbox"
                   checked={childIsHero}
                   onChange={e => setChildIsHero(e.target.checked)}
-                  className="w-4 h-4 rounded accent-[--color-accent] cursor-pointer"
+                  className="sr-only"
                 />
+                <span
+                  className="w-4 h-4 rounded shrink-0 flex items-center justify-center border-2 transition-all"
+                  style={childIsHero ? {
+                    backgroundColor: 'var(--accent)',
+                    borderColor: 'var(--accent)',
+                  } : {
+                    backgroundColor: 'transparent',
+                    borderColor: 'var(--border)',
+                  }}
+                >
+                  {childIsHero && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                      <path d="M1 4L3.5 6.5L9 1" stroke="var(--background)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </span>
                 <span className="text-xs text-[--color-muted]">
                   Make <span className="text-[--color-foreground] font-medium">{name || 'your child'}</span> the hero of the story
                 </span>
