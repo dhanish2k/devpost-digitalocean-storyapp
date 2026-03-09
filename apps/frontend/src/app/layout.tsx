@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Storytime",
-  description: "Personalised AI bedtime stories for your child",
+  description: "A personalised bedtime ritual for your child",
 };
 
 export default function RootLayout({

@@ -101,7 +101,8 @@ def get_story_agent() -> Agent[None, StoryGenerationResult]:
             raise RuntimeError("MODEL_ACCESS_KEY environment variable is not set")
         # STORY_MODEL_NAME allows using a stronger model for story generation
         # independently of the seed agent. Check DO's model catalog for options.
-        model_name = os.getenv("STORY_MODEL_NAME") or os.getenv("MODEL_NAME", "openai-gpt-oss-120b")
+        # NOTE: deepseek-r1-distill-llama-70b does not support tool calling (structured output).
+        model_name = os.getenv("STORY_MODEL_NAME") or os.getenv("MODEL_NAME", "llama3.3-70b-instruct")
         model = OpenAIChatModel(
             model_name,
             provider=OpenAIProvider(

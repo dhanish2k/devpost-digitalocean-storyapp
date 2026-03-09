@@ -24,7 +24,7 @@ services:
         value: llama3.3-70b-instruct
         scope: RUN_TIME
       - key: STORY_MODEL_NAME
-        value: deepseek-r1-distill-llama-70b
+        value: llama3.3-70b-instruct
         scope: RUN_TIME
       - key: LOGFIRE_TOKEN
         scope: RUN_TIME
