@@ -539,7 +539,7 @@ export default function HomePage() {
               </>
             ) : (
               <>
-                Begin Tonight&apos;s Story
+                Select Tonight&apos;s Story
                 <span className="text-xl leading-none">→</span>
               </>
             )}
