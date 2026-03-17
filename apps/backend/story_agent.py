@@ -84,7 +84,7 @@ def _build_story_prompt(
         f"Setting: {seed['setting']}\n"
         f"Emotional themes (emerge through action — do NOT use these words in the text): {', '.join(seed['values'])}\n"
         f"Synopsis: {seed['synopsis']}\n"
-        f"For: {child_name}, age {child_age}{protagonist_hint}\n\n"
+        f"For: {'a child' if not child_name else child_name}, age {child_age}{protagonist_hint}\n\n"
         f"Write a complete {pages}-page story now. Do not ask questions — generate immediately. "
         f"Make the challenge specific and the resolution earned.{lang_hint}"
     )
@@ -179,7 +179,10 @@ async def _generate_page_media(
             generate_tts(page.text, language=language),
             return_exceptions=True,
         )
-        audio_url, word_timings = tts_result if not isinstance(tts_result, Exception) else (tts_result, [])
+        if isinstance(tts_result, Exception):
+            audio_url, audio_url_2, word_timings = tts_result, None, []
+        else:
+            audio_url, audio_url_2, word_timings = tts_result
     else:
         enhanced_prompt = await enhance_image_prompt(page.image_prompt, char_desc, setting)
         audio_url = None
@@ -195,9 +198,11 @@ async def _generate_page_media(
     else:
         image_prompt = enhanced_prompt
 
-    image_url = await generate_image(image_prompt)
-
-    await queue.put(ImageReadyEvent(page_number=page.page_number, image_url=image_url).model_dump())
+    try:
+        image_url = await generate_image(image_prompt)
+        await queue.put(ImageReadyEvent(page_number=page.page_number, image_url=image_url).model_dump())
+    except Exception as exc:
+        print(f"[story_agent] Image gen failed for page {page.page_number}: {exc}")
 
     if audio_url is not None:
         if isinstance(audio_url, Exception):
@@ -206,5 +211,6 @@ async def _generate_page_media(
             await queue.put(NarrationReadyEvent(
                 page_number=page.page_number,
                 audio_url=audio_url,
+                audio_url_2=audio_url_2,
                 word_timings=word_timings,
             ).model_dump())

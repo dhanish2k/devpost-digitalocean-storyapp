@@ -71,6 +71,7 @@ class NarrationReadyEvent(BaseModel):
     event: Literal["narration_ready"] = "narration_ready"
     page_number: int
     audio_url: str
+    audio_url_2: str | None = None
     word_timings: list[WordTiming]
 
 

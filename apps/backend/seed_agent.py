@@ -54,7 +54,7 @@ def _build_prompt(p: ParentPrompt) -> str:
         "\nInfer the most resonant emotional themes from what happened — do NOT name them in the story."
     )
     return (
-        f"Child: {p.child_name}, age {p.child_age}\n"
+        f"Child: {'a child' if not p.child_name else p.child_name}, age {p.child_age}\n"
         f"What happened today: {p.description}"
         f"{values_line}"
         f"{archetype_hint}\n\n"

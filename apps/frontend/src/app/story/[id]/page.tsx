@@ -15,6 +15,7 @@ interface StoryPage {
   text: string;
   image_url?: string;
   audio_url?: string;
+  audio_url_2?: string;
   word_timings?: WordTiming[];
 }
 
@@ -32,6 +33,7 @@ export default function StoryReaderPage({
   const [activeWordIdx, setActiveWordIdx] = useState(-1);
 
   const audioRef         = useRef<HTMLAudioElement | null>(null);
+  const accOffsetMsRef   = useRef<number>(0);
   const rafRef           = useRef<number>(0);
   const autoPlayedRef    = useRef<Set<number>>(new Set());
   const pageMapRef       = useRef<Record<number, StoryPage>>({});
@@ -48,7 +50,7 @@ export default function StoryReaderPage({
 
     es.addEventListener('story_page',      e => { const d = JSON.parse((e as MessageEvent).data); patch(d.page_number, { text: d.text }); });
     es.addEventListener('image_ready',     e => { const d = JSON.parse((e as MessageEvent).data); patch(d.page_number, { image_url: d.image_url }); });
-    es.addEventListener('narration_ready', e => { const d = JSON.parse((e as MessageEvent).data); patch(d.page_number, { audio_url: d.audio_url, word_timings: d.word_timings ?? [] }); });
+    es.addEventListener('narration_ready', e => { const d = JSON.parse((e as MessageEvent).data); patch(d.page_number, { audio_url: d.audio_url, audio_url_2: d.audio_url_2 ?? undefined, word_timings: d.word_timings ?? [] }); });
     es.addEventListener('story_complete',  () => setComplete(true));
     es.addEventListener('stream_done',     () => es.close());
     es.onerror = () => es.close();
@@ -66,7 +68,7 @@ export default function StoryReaderPage({
     activeTimingsRef.current = timings;
     const tick = () => {
       if (!audioRef.current) return;
-      const nowMs = audioRef.current.currentTime * 1000;
+      const nowMs = accOffsetMsRef.current + audioRef.current.currentTime * 1000;
       let idx = -1;
       for (let i = 0; i < timings.length; i++) {
         if (nowMs >= timings[i].start_ms && nowMs <= timings[i].end_ms) { idx = i; break; }
@@ -79,9 +81,10 @@ export default function StoryReaderPage({
 
   // ── Audio helpers ─────────────────────────────────────────────────────────
 
-  const startAudio = useCallback((url: string, timings: WordTiming[]) => {
+  const startAudio = useCallback((url: string, timings: WordTiming[], url2?: string) => {
     if (audioRef.current) audioRef.current.pause();
     stopRaf();
+    accOffsetMsRef.current = 0;
 
     const audio = new Audio(url);
     audioRef.current = audio;
@@ -89,13 +92,25 @@ export default function StoryReaderPage({
     setAudioPlaying(true);
     if (timings.length) startRaf(timings);
 
-    audio.onended = () => {
+    const advancePage = () => {
       stopRaf();
       setAudioPlaying(false);
       setCurrent(p => {
         const total = Object.keys(pageMapRef.current).length;
         return p < total ? p + 1 : p;
       });
+    };
+
+    audio.onended = () => {
+      if (url2) {
+        accOffsetMsRef.current = (audio.duration || 0) * 1000;
+        const audio2 = new Audio(url2);
+        audioRef.current = audio2;
+        audio2.play().catch(() => {});
+        audio2.onended = advancePage;
+      } else {
+        advancePage();
+      }
     };
   }, [startRaf, stopRaf]);
 
@@ -104,6 +119,7 @@ export default function StoryReaderPage({
   useEffect(() => {
     stopRaf();
     setAudioPlaying(false);
+    accOffsetMsRef.current = 0;
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
   }, [current, stopRaf]);
 
@@ -113,7 +129,7 @@ export default function StoryReaderPage({
     const p = pageMap[current];
     if (!p?.audio_url || autoPlayedRef.current.has(current)) return;
     autoPlayedRef.current.add(current);
-    startAudio(p.audio_url, p.word_timings ?? []);
+    startAudio(p.audio_url, p.word_timings ?? [], p.audio_url_2);
   }, [pageMap, current, startAudio]);
 
   // ── Pause / Resume ────────────────────────────────────────────────────────
@@ -122,7 +138,7 @@ export default function StoryReaderPage({
     const audio = audioRef.current;
     const p = pageMap[current];
     if (!audio) {
-      if (p?.audio_url) startAudio(p.audio_url, p.word_timings ?? []);
+      if (p?.audio_url) startAudio(p.audio_url, p.word_timings ?? [], p.audio_url_2);
       return;
     }
     if (audioPlaying) {

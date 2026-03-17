@@ -128,16 +128,53 @@ def _parse_word_timings(output: dict) -> list[dict]:
     return word_timings
 
 
-async def generate_tts(text: str, language: str = "en") -> tuple[str, list[dict]]:
-    """Generate TTS narration and return (audio_url, word_timings)."""
+def _split_text(text: str, max_chars: int = 280) -> tuple[str, str | None]:
+    """Split text at a sentence boundary if longer than max_chars."""
+    if len(text) <= max_chars:
+        return text, None
+    # Walk backwards from max_chars looking for '. ', '! ', '? '
+    for i in range(min(max_chars, len(text) - 1), max_chars // 2, -1):
+        if text[i] in ".!?" and i + 1 < len(text) and text[i + 1] == " ":
+            return text[:i + 1].strip(), text[i + 1:].strip()
+    # Fallback: split at last space
+    for i in range(min(max_chars, len(text) - 1), 0, -1):
+        if text[i] == " ":
+            return text[:i].strip(), text[i:].strip()
+    return text, None
+
+
+async def _tts_single(text: str, language: str = "en", previous_text: str = "") -> tuple[str, list[dict]]:
+    """Single TTS call, returns (audio_url, word_timings)."""
     input_data: dict = {"text": text, "timestamps": True}
     if language == "es":
         input_data["language"] = "es"
+    if previous_text:
+        input_data["previous_text"] = previous_text
     async with httpx.AsyncClient() as client:
         request_id = await _invoke(client, "fal-ai/elevenlabs/tts/multilingual-v2", input_data)
         result = await _poll_result(client, request_id)
-
     output = result.get("output", {})
-    audio_url = output["audio"]["url"]
-    word_timings = _parse_word_timings(output)
-    return audio_url, word_timings
+    return output["audio"]["url"], _parse_word_timings(output)
+
+
+async def generate_tts(text: str, language: str = "en") -> tuple[str, str | None, list[dict]]:
+    """Generate TTS narration. Splits long texts so word timings cover the full page.
+    Returns (audio_url, audio_url_2_or_none, word_timings).
+    """
+    part1, part2 = _split_text(text)
+    if part2 is None:
+        url, timings = await _tts_single(part1, language)
+        return url, None, timings
+
+    # Both parts in parallel; part2 uses previous_text for voice continuity
+    (url1, timings1), (url2, timings2_raw) = await asyncio.gather(
+        _tts_single(part1, language),
+        _tts_single(part2, language, previous_text=part1),
+    )
+    # Offset part2 timings so they're absolute relative to the start of audio1
+    offset_ms = (timings1[-1]["end_ms"] + 400) if timings1 else 0
+    timings2 = [
+        {**t, "start_ms": t["start_ms"] + offset_ms, "end_ms": t["end_ms"] + offset_ms}
+        for t in timings2_raw
+    ]
+    return url1, url2, timings1 + timings2
