@@ -25,17 +25,17 @@ export default function StoryReaderPage({
 }) {
   const { id: storyId } = use(params);
 
-  const [pageMap, setPageMap]         = useState<Record<number, StoryPage>>({});
-  const [complete, setComplete]       = useState(false);
-  const [current, setCurrent]         = useState(1);
-  const [audioPlaying, setAudioPlaying] = useState(false);
+  const [pageMap,       setPageMap]       = useState<Record<number, StoryPage>>({});
+  const [complete,      setComplete]      = useState(false);
+  const [current,       setCurrent]       = useState(1);
+  const [audioPlaying,  setAudioPlaying]  = useState(false);
   const [activeWordIdx, setActiveWordIdx] = useState(-1);
 
-  const audioRef       = useRef<HTMLAudioElement | null>(null);
-  const rafRef         = useRef<number>(0);
-  const autoPlayedRef  = useRef<Set<number>>(new Set());
-  // Stable ref so onended closures always see the latest pageMap
-  const pageMapRef     = useRef<Record<number, StoryPage>>({});
+  const audioRef         = useRef<HTMLAudioElement | null>(null);
+  const rafRef           = useRef<number>(0);
+  const autoPlayedRef    = useRef<Set<number>>(new Set());
+  const pageMapRef       = useRef<Record<number, StoryPage>>({});
+  const activeTimingsRef = useRef<WordTiming[]>([]);
 
   useEffect(() => { pageMapRef.current = pageMap; }, [pageMap]);
 
@@ -43,19 +43,14 @@ export default function StoryReaderPage({
 
   useEffect(() => {
     const es = new EventSource(`${API_URL}/stream/${storyId}`);
+    const patch = (n: number, p: Partial<StoryPage>) =>
+      setPageMap(prev => ({ ...prev, [n]: { ...prev[n], page_number: n, ...p } }));
 
-    const updatePage = (page_number: number, patch: Partial<StoryPage>) => {
-      setPageMap(prev => ({
-        ...prev,
-        [page_number]: { ...prev[page_number], page_number, ...patch },
-      }));
-    };
-
-    es.addEventListener('story_page',     e => { const d = JSON.parse((e as MessageEvent).data); updatePage(d.page_number, { text: d.text }); });
-    es.addEventListener('image_ready',    e => { const d = JSON.parse((e as MessageEvent).data); updatePage(d.page_number, { image_url: d.image_url }); });
-    es.addEventListener('narration_ready',e => { const d = JSON.parse((e as MessageEvent).data); updatePage(d.page_number, { audio_url: d.audio_url, word_timings: d.word_timings ?? [] }); });
-    es.addEventListener('story_complete', () => setComplete(true));
-    es.addEventListener('stream_done',    () => es.close());
+    es.addEventListener('story_page',      e => { const d = JSON.parse((e as MessageEvent).data); patch(d.page_number, { text: d.text }); });
+    es.addEventListener('image_ready',     e => { const d = JSON.parse((e as MessageEvent).data); patch(d.page_number, { image_url: d.image_url }); });
+    es.addEventListener('narration_ready', e => { const d = JSON.parse((e as MessageEvent).data); patch(d.page_number, { audio_url: d.audio_url, word_timings: d.word_timings ?? [] }); });
+    es.addEventListener('story_complete',  () => setComplete(true));
+    es.addEventListener('stream_done',     () => es.close());
     es.onerror = () => es.close();
     return () => es.close();
   }, [storyId]);
@@ -68,6 +63,7 @@ export default function StoryReaderPage({
   }, []);
 
   const startRaf = useCallback((timings: WordTiming[]) => {
+    activeTimingsRef.current = timings;
     const tick = () => {
       if (!audioRef.current) return;
       const nowMs = audioRef.current.currentTime * 1000;
@@ -83,8 +79,8 @@ export default function StoryReaderPage({
 
   // ── Audio helpers ─────────────────────────────────────────────────────────
 
-  const startAudio = useCallback((url: string, timings: WordTiming[] = []) => {
-    if (audioRef.current) { audioRef.current.pause(); }
+  const startAudio = useCallback((url: string, timings: WordTiming[]) => {
+    if (audioRef.current) audioRef.current.pause();
     stopRaf();
 
     const audio = new Audio(url);
@@ -111,13 +107,13 @@ export default function StoryReaderPage({
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
   }, [current, stopRaf]);
 
-  // ── Auto-play on first asset arrival ─────────────────────────────────────
+  // ── Auto-play on asset arrival ────────────────────────────────────────────
 
   useEffect(() => {
     const p = pageMap[current];
     if (!p?.audio_url || autoPlayedRef.current.has(current)) return;
     autoPlayedRef.current.add(current);
-    startAudio(p.audio_url, p.word_timings);
+    startAudio(p.audio_url, p.word_timings ?? []);
   }, [pageMap, current, startAudio]);
 
   // ── Pause / Resume ────────────────────────────────────────────────────────
@@ -126,7 +122,7 @@ export default function StoryReaderPage({
     const audio = audioRef.current;
     const p = pageMap[current];
     if (!audio) {
-      if (p?.audio_url) startAudio(p.audio_url, p.word_timings);
+      if (p?.audio_url) startAudio(p.audio_url, p.word_timings ?? []);
       return;
     }
     if (audioPlaying) {
@@ -135,7 +131,7 @@ export default function StoryReaderPage({
       setAudioPlaying(false);
     } else {
       audio.play().catch(() => {});
-      if (p?.word_timings?.length) startRaf(p.word_timings);
+      if (activeTimingsRef.current.length) startRaf(activeTimingsRef.current);
       setAudioPlaying(true);
     }
   };
@@ -156,10 +152,12 @@ export default function StoryReaderPage({
     page1?.text && page1?.image_url && (!narrationEnabled || page1?.audio_url)
   );
 
-  // ── Word-token renderer ───────────────────────────────────────────────────
+  // ── Word renderer — only active when real timings are present ─────────────
 
   const renderText = () => {
-    if (!page?.word_timings?.length) return page?.text ?? '';
+    const timings = page?.word_timings;
+    if (!timings?.length || !page?.text) return page?.text ?? '';
+
     const tokens = page.text.split(/(\s+)/);
     let wi = 0;
     return tokens.map((tok, i) => {
@@ -170,10 +168,13 @@ export default function StoryReaderPage({
           key={i}
           className="inline-block origin-bottom"
           style={{
+            padding: '0 0.15em',
             transition: 'transform 80ms ease-out, color 80ms ease-out',
-            ...(isActive
-              ? { color: 'var(--accent)', transform: 'scale(1.25)', fontWeight: '500' }
-              : {}),
+            ...(isActive ? {
+              color: 'var(--accent)',
+              transform: 'scale(1.28)',
+              fontWeight: '500',
+            } : {}),
           }}
         >
           {tok}
@@ -194,7 +195,6 @@ export default function StoryReaderPage({
           Page {current} of {totalPages}{complete ? '' : '…'}
         </span>
 
-        {/* Illustration */}
         <div className="w-full aspect-video rounded-2xl overflow-hidden bg-[--color-card]">
           {page.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -206,12 +206,10 @@ export default function StoryReaderPage({
           )}
         </div>
 
-        {/* Story text */}
         <p className="text-2xl md:text-3xl leading-relaxed text-center text-[--color-foreground] font-light min-h-40">
           {renderText()}
         </p>
 
-        {/* Playback controls */}
         {page?.audio_url && (
           <button
             onClick={handleTogglePlay}
@@ -223,12 +221,10 @@ export default function StoryReaderPage({
             } : {
               borderColor: 'var(--border)',
               color: 'var(--muted)',
-              backgroundColor: 'transparent',
             }}
           >
             {audioPlaying ? (
               <>
-                {/* Pause icon */}
                 <svg width="11" height="13" viewBox="0 0 11 13" fill="currentColor">
                   <rect x="0" y="0" width="3.5" height="13" rx="1" />
                   <rect x="7.5" y="0" width="3.5" height="13" rx="1" />
@@ -237,7 +233,6 @@ export default function StoryReaderPage({
               </>
             ) : (
               <>
-                {/* Play icon */}
                 <svg width="11" height="13" viewBox="0 0 11 13" fill="currentColor">
                   <path d="M1 0.5l10 6-10 6V0.5z" />
                 </svg>
@@ -251,7 +246,6 @@ export default function StoryReaderPage({
           <p className="text-[--color-accent] text-2xl font-bold italic">The End</p>
         )}
 
-        {/* Navigation */}
         <div className="flex items-center gap-6 mt-4">
           <button
             onClick={() => setCurrent(p => p - 1)}

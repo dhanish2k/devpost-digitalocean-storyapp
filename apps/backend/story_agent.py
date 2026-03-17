@@ -174,14 +174,16 @@ async def _generate_page_media(
 
     # Run prompt enhancement and (optionally) TTS in parallel — they're independent
     if narration_enabled:
-        enhanced_prompt, audio_url = await asyncio.gather(
+        enhanced_prompt, tts_result = await asyncio.gather(
             enhance_image_prompt(page.image_prompt, char_desc, setting),
             generate_tts(page.text, language=language),
             return_exceptions=True,
         )
+        audio_url, word_timings = tts_result if not isinstance(tts_result, Exception) else (tts_result, [])
     else:
         enhanced_prompt = await enhance_image_prompt(page.image_prompt, char_desc, setting)
         audio_url = None
+        word_timings = []
 
     # Image gen uses the enhanced prompt (fallback to raw if enhancement failed)
     if isinstance(enhanced_prompt, Exception):
@@ -204,5 +206,5 @@ async def _generate_page_media(
             await queue.put(NarrationReadyEvent(
                 page_number=page.page_number,
                 audio_url=audio_url,
-                word_timings=[],
+                word_timings=word_timings,
             ).model_dump())

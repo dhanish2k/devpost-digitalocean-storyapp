@@ -78,14 +78,66 @@ async def generate_image(prompt: str) -> str:
     return result["output"]["images"][0]["url"]
 
 
-async def generate_tts(text: str, language: str = "en") -> str:
-    """Generate TTS narration and return the audio URL."""
-    input_data: dict = {"text": text}
+def _parse_word_timings(output: dict) -> list[dict]:
+    """
+    Convert ElevenLabs character-level alignment into word-level timings.
+    Works for any language — timing data comes from the audio, not from text heuristics.
+    DO Gradient returns timestamps.characters / timestamps.character_start_times_seconds etc.
+    """
+    alignment = (
+        output.get("timestamps")
+        or output.get("normalized_alignment")
+        or output.get("alignment")
+        or {}
+    )
+    if isinstance(alignment, list):
+        alignment = alignment[0] if alignment else {}
+    chars  = alignment.get("characters", [])
+    starts = alignment.get("character_start_times_seconds", [])
+    ends   = alignment.get("character_end_times_seconds", [])
+
+    if not (chars and len(chars) == len(starts) == len(ends)):
+        return []
+
+    word_timings: list[dict] = []
+    word: str = ""
+    word_start: float | None = None
+
+    for ch, start, end in zip(chars, starts, ends):
+        if ch in (" ", "\n", "\t"):
+            if word:
+                word_timings.append({
+                    "word": word,
+                    "start_ms": int(word_start * 1000),  # type: ignore[arg-type]
+                    "end_ms": int(end * 1000),
+                })
+                word = ""
+                word_start = None
+        else:
+            if not word:
+                word_start = start
+            word += ch
+
+    if word:  # flush last word
+        word_timings.append({
+            "word": word,
+            "start_ms": int(word_start * 1000),  # type: ignore[arg-type]
+            "end_ms": int(ends[-1] * 1000),
+        })
+
+    return word_timings
+
+
+async def generate_tts(text: str, language: str = "en") -> tuple[str, list[dict]]:
+    """Generate TTS narration and return (audio_url, word_timings)."""
+    input_data: dict = {"text": text, "timestamps": True}
     if language == "es":
         input_data["language"] = "es"
     async with httpx.AsyncClient() as client:
         request_id = await _invoke(client, "fal-ai/elevenlabs/tts/multilingual-v2", input_data)
         result = await _poll_result(client, request_id)
 
-    # result["output"]["audio"]["url"]
-    return result["output"]["audio"]["url"]
+    output = result.get("output", {})
+    audio_url = output["audio"]["url"]
+    word_timings = _parse_word_timings(output)
+    return audio_url, word_timings
