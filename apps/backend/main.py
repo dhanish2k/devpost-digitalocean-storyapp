@@ -43,9 +43,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class StoryStream(asyncio.Queue):
+    """asyncio.Queue subclass that also keeps an event log for replay.
+
+    Agents call ``await stream.put(item)`` exactly as before.  When the SSE
+    generator connects (or *reconnects* after a proxy timeout), it first
+    replays every event that was already logged, then tails the queue for new
+    ones.  This survives DO App Platform's proxy resets and EventSource
+    auto-reconnects without losing events.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.log: list[dict] = []
+
+    async def put(self, item: dict) -> None:  # type: ignore[override]
+        self.log.append(item)
+        await super().put(item)
+
+
 # In-memory storage for active story streams.
 # For production, replace with Redis Pub/Sub.
-STREAM_STATE: Dict[str, asyncio.Queue] = {}
+STREAM_STATE: Dict[str, StoryStream] = {}
 
 # Per-story context: prompt + parsed seeds (needed at /select time).
 STORY_STATE: Dict[str, dict] = {}
@@ -99,11 +118,11 @@ async def create_demo_story():
 async def create_story(prompt: ParentPrompt):
     """Creates a real story session. Kicks off the seed agent in the background."""
     story_id = str(uuid.uuid4())
-    queue = asyncio.Queue()
-    STREAM_STATE[story_id] = queue
+    stream = StoryStream()
+    STREAM_STATE[story_id] = stream
     state: dict = {"prompt": prompt, "seeds": []}
     STORY_STATE[story_id] = state
-    asyncio.create_task(run_seed_agent(story_id, prompt, queue, state))
+    asyncio.create_task(run_seed_agent(story_id, prompt, stream, state))
     return {"story_id": story_id}
 
 
@@ -150,23 +169,36 @@ async def trigger_event(story_id: str, part: StoryPart):
 async def message_stream(story_id: str):
     """SSE endpoint. Reads from the story's queue and streams typed events to the client."""
     if story_id not in STREAM_STATE:
-        # Demo path: no queue was pre-created, start simulation
-        queue = asyncio.Queue()
-        STREAM_STATE[story_id] = queue
-        asyncio.create_task(simulate_story(story_id, queue))
+        # Demo path: no stream was pre-created, start simulation
+        stream = StoryStream()
+        STREAM_STATE[story_id] = stream
+        asyncio.create_task(simulate_story(story_id, stream))
     else:
-        queue = STREAM_STATE[story_id]
+        stream = STREAM_STATE[story_id]
 
     async def event_generator():
         yield {
             "event": "stream_open",
             "data": json.dumps({"message": f"Streaming ready for story {story_id}"}),
         }
+
+        # Replay any events that arrived before this connection (or were consumed
+        # by a previous connection that dropped due to a proxy reset).
+        # No await between snapshot and drain — safe under cooperative multitasking.
+        replay_count = len(stream.log)
+        for event in stream.log[:replay_count]:
+            event_type = event.get("event", "story_update")
+            yield {"event": event_type, "data": json.dumps(event)}
+            if event_type in ("stream_done", "error"):
+                return
+        # Drain those same items from the queue so we don't deliver them twice.
+        for _ in range(replay_count):
+            if not stream.empty():
+                stream.get_nowait()
+
         while True:
             try:
-                # Wait up to 25s for next event; yield a keepalive comment so the
-                # browser doesn't time out on long LLM calls.
-                data = await asyncio.wait_for(queue.get(), timeout=25.0)
+                data = await asyncio.wait_for(stream.get(), timeout=25.0)
             except asyncio.TimeoutError:
                 yield {"comment": "keepalive"}
                 continue
